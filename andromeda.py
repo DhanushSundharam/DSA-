@@ -1,0 +1,123 @@
+from kivymd.app import MDApp
+from kivymd.uix.screen import Screen
+from kivymd.uix.button import MDFillRoundFlatButton
+from kivymd.uix.label import MDLabel
+from kivy.lang import Builder
+import speech_recognition as sr
+import openai
+
+openai.api_key = "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"
+
+username_helper = """
+BoxLayout:
+    orientation: 'vertical'
+    MDTextField:
+        id: text_field
+        hint_text: "Send a Message"
+        icon_right: "android"
+        size_hint_y: None
+        height: "48dp"
+        pos_hint: {"center_x": 0.4, "center_y": 0.1}
+        size_hint_x: None
+        width: 300
+
+    MDFillRoundFlatButton:
+        text: "Submit"
+        pos_hint: {"center_x": 0.7, "center_y": 0.3}
+        
+        on_release: app.on_submit_button_click()
+
+    MDFillRoundFlatButton:
+        id: voice_button
+        text: "Voice"
+        pos_hint: {"center_x": 0.7, "center_y": 0.8}
+        on_release: app.on_voice_button_click()
+"""
+
+result_helper = """
+Screen:
+    ScrollView:
+        MDLabel:
+            id: result_label
+            text: ""
+            halign: 'center'
+            font_size: '24sp'
+            size_hint_y: None
+            adaptive_height: True
+    MDFillRoundFlatButton:
+        text: "Go Back"
+        pos_hint: {"center_x": 0.5}
+        pos_hint:{"center_y": 0.1}
+        on_release: app.on_go_back_button_click()
+"""
+
+class DemoApp(MDApp):
+    username_screen = None
+    result_screen = None
+    
+    def build(self):
+        self.username_screen = Builder.load_string(username_helper)
+        self.result_screen = Builder.load_string(result_helper)
+        
+        screen = Screen()
+        self.theme_cls.primary_palette = "Green"
+        screen.add_widget(self.username_screen)
+        return screen
+    
+    def on_submit_button_click(self):
+        text = self.username_screen.ids.text_field.text
+        print(f"User input: {text}")
+        
+        def generate_text(text):
+            response = openai.Completion.create(
+                engine="text-davinci-002",
+                prompt=text,
+                max_tokens=2000,
+                top_p=1,
+                temperature=0,
+                frequency_penalty=0,
+                presence_penalty=0
+            )
+            return response.choices[0].text
+
+        self.result_screen.ids.result_label.text = generate_text(text)
+        self.root.clear_widgets()
+        self.root.add_widget(self.result_screen)
+    
+    def on_voice_button_click(self):
+        r = sr.Recognizer()
+
+        with sr.Microphone() as source:
+            print("Listening...")
+            audio = r.listen(source)
+
+        try:
+            print("Recognizing...")
+            voice_input_text = r.recognize_google(audio)
+            def generate_text1():
+                        response = openai.Completion.create(
+                        engine="text-davinci-002",
+                        prompt=voice_input_text,
+                        max_tokens=2000,
+                        top_p=1,
+                        temperature=0,
+                        frequency_penalty=0,
+                        presence_penalty=0)
+                        return response.choices[0].text
+
+            self.username_screen.ids.text_field.text += voice_input_text
+            self.result_screen.ids.result_label.text = generate_text1()
+            self.root.clear_widgets()
+            self.root.add_widget(self.result_screen)
+                        
+        except sr.UnknownValueError:
+            print("Speech recognition could not understand audio.")
+        except sr.RequestError as e:
+            print(f"Could not request results from Google Speech Recognition service; {e}")
+    
+    def on_go_back_button_click(self):
+        self.root.clear_widgets()
+        self.root.add_widget(self.username_screen)
+    
+    
+DemoApp().run()
